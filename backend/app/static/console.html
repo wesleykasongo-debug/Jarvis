@@ -54,8 +54,15 @@
 
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; }
   #login { max-width: 380px; margin: 48px auto; width: 100%; }
-  #login h2 { font: 500 20px var(--serif); margin: 0 0 4px; }
-  #login p { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+  #login p { color: var(--muted); margin: 0 0 6px; font-size: 13px; }
+  .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); margin: -4px 0 18px; }
+  button.tab {
+    background: none; color: var(--muted); border-radius: 0; padding: 0 0 10px; margin-bottom: -1px;
+    font: 500 19px var(--serif); border-bottom: 2px solid transparent;
+  }
+  button.tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .notice { color: var(--ok); font-size: 13px; margin-top: 12px; white-space: pre-wrap; }
+  .notice:empty, .error:empty { display: none; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; letter-spacing: .04em; }
   input, select, textarea {
     width: 100%; font: inherit; color: var(--ink); background: var(--bg);
@@ -113,15 +120,34 @@
 
 <main>
   <section id="login" class="card">
-    <h2>Connexion</h2>
-    <p>Utilisateur créé dans Supabase (Authentication → Users).</p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" class="tab active" id="tab-login" aria-selected="true">Connexion</button>
+      <button type="button" role="tab" class="tab" id="tab-signup" aria-selected="false">Créer un compte</button>
+    </div>
+
     <form id="login-form">
+      <p>Connectez-vous avec un compte existant.</p>
       <label for="email">E-mail</label>
       <input id="email" type="email" autocomplete="username" required>
       <label for="password">Mot de passe</label>
       <input id="password" type="password" autocomplete="current-password" required>
       <button type="submit" id="login-btn">Se connecter</button>
       <div class="error" id="login-error"></div>
+    </form>
+
+    <form id="signup-form" hidden>
+      <p>Le profil (palier Free : 30 messages et 50 000 tokens par jour) est créé automatiquement.</p>
+      <label for="su-name">Nom affiché</label>
+      <input id="su-name" type="text" autocomplete="name" maxlength="80">
+      <label for="su-email">E-mail</label>
+      <input id="su-email" type="email" autocomplete="email" required>
+      <label for="su-password">Mot de passe (6 caractères minimum)</label>
+      <input id="su-password" type="password" autocomplete="new-password" minlength="6" required>
+      <label for="su-password2">Confirmer le mot de passe</label>
+      <input id="su-password2" type="password" autocomplete="new-password" minlength="6" required>
+      <button type="submit" id="signup-btn">Créer le compte</button>
+      <div class="error" id="signup-error"></div>
+      <div class="notice" id="signup-notice"></div>
     </form>
   </section>
 
@@ -179,34 +205,108 @@ function setDot(id, cls, title) {
   const el = $(id); el.className = "dot " + cls; el.parentElement.title = title || "";
 }
 
-// --- Connexion -----------------------------------------------------------------
+// --- Onglets ---------------------------------------------------------------------
+function showTab(name) {
+  const login = name === "login";
+  $("tab-login").classList.toggle("active", login);
+  $("tab-signup").classList.toggle("active", !login);
+  $("tab-login").setAttribute("aria-selected", login);
+  $("tab-signup").setAttribute("aria-selected", !login);
+  $("login-form").hidden = !login;
+  $("signup-form").hidden = login;
+}
+$("tab-login").addEventListener("click", () => showTab("login"));
+$("tab-signup").addEventListener("click", () => showTab("signup"));
+
+// --- Supabase Auth ---------------------------------------------------------------
+async function authRequest(path, body) {
+  if (!config || !config.publishable_key) {
+    throw new Error("SUPABASE_PUBLISHABLE_KEY manquante dans backend/.env.");
+  }
+  const resp = await fetch(config.supabase_url + "/auth/v1/" + path, {
+    method: "POST",
+    headers: { "apikey": config.publishable_key, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(translateAuthError(data));
+  return data;
+}
+
+function translateAuthError(data) {
+  const code = data.error_code || data.code || "";
+  const msg = data.msg || data.error_description || data.message || "Erreur d'authentification";
+  const fr = {
+    invalid_credentials: "E-mail ou mot de passe incorrect.",
+    email_not_confirmed: "E-mail pas encore confirmé : cliquez sur le lien reçu par e-mail.",
+    user_already_exists: "Un compte existe déjà avec cet e-mail : utilisez l'onglet Connexion.",
+    weak_password: "Mot de passe trop faible.",
+    over_email_send_rate_limit: "Trop d'e-mails envoyés : réessayez dans quelques minutes.",
+    signup_disabled: "Les inscriptions sont désactivées dans Supabase.",
+    validation_failed: "E-mail invalide.",
+  };
+  return fr[code] || msg;
+}
+
+function startSession(session) {
+  token = session.access_token;
+  $("password").value = ""; $("su-password").value = ""; $("su-password2").value = "";
+  $("who").textContent = session.user && session.user.email ? session.user.email : "";
+  $("login").style.display = "none";
+  $("chat").style.display = "flex";
+  $("input").focus();
+  refreshQuota();
+}
+
+// --- Connexion -------------------------------------------------------------------
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("login-error").textContent = "";
-  if (!config || !config.publishable_key) {
-    $("login-error").textContent = "SUPABASE_PUBLISHABLE_KEY manquante dans backend/.env.";
-    return;
-  }
   $("login-btn").disabled = true;
   try {
-    const resp = await fetch(config.supabase_url + "/auth/v1/token?grant_type=password", {
-      method: "POST",
-      headers: { "apikey": config.publishable_key, "Content-Type": "application/json" },
-      body: JSON.stringify({ email: $("email").value.trim(), password: $("password").value }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.msg || data.error_description || data.message || "Connexion refusée");
-    token = data.access_token;
-    $("password").value = "";
-    $("who").textContent = data.user && data.user.email ? data.user.email : "";
-    $("login").style.display = "none";
-    $("chat").style.display = "flex";
-    $("input").focus();
-    refreshQuota();
+    startSession(await authRequest("token?grant_type=password", {
+      email: $("email").value.trim(), password: $("password").value,
+    }));
   } catch (err) {
     $("login-error").textContent = err.message;
   } finally {
     $("login-btn").disabled = false;
+  }
+});
+
+// --- Création de compte ----------------------------------------------------------
+$("signup-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("signup-error").textContent = ""; $("signup-notice").textContent = "";
+  if ($("su-password").value !== $("su-password2").value) {
+    $("signup-error").textContent = "Les deux mots de passe ne correspondent pas.";
+    return;
+  }
+  const email = $("su-email").value.trim();
+  const name = $("su-name").value.trim();
+  $("signup-btn").disabled = true;
+  try {
+    const data = await authRequest("signup", {
+      email, password: $("su-password").value,
+      data: name ? { display_name: name } : {},
+    });
+    if (data.access_token) {
+      // Confirmation par e-mail désactivée : session immédiate.
+      startSession(data);
+      return;
+    }
+    // Confirmation par e-mail activée (réglage par défaut de Supabase).
+    $("su-password").value = ""; $("su-password2").value = "";
+    $("email").value = email;
+    $("signup-notice").textContent =
+      "Compte créé. Un e-mail de confirmation a été envoyé à " + email + ".\n"
+      + "Cliquez sur le lien qu'il contient, puis connectez-vous dans l'onglet Connexion.\n\n"
+      + "Aucun e-mail ? Vérifiez les spams, ou désactivez la confirmation pour vos tests "
+      + "(Supabase → Authentication → Sign In / Providers → Email → « Confirm email »).";
+  } catch (err) {
+    $("signup-error").textContent = err.message;
+  } finally {
+    $("signup-btn").disabled = false;
   }
 });
 
@@ -226,7 +326,10 @@ function resetMessages() {
 // --- Quota ---------------------------------------------------------------------
 async function refreshQuota() {
   const r = await api("/me/quota");
-  if (r.ok) showQuota(await r.json());
+  if (r.ok) { showQuota(await r.json()); return; }
+  let detail = "Erreur " + r.status;
+  try { detail = (await r.json()).detail || detail; } catch {}
+  addMessage("system", "Quota indisponible : " + detail);
 }
 function showQuota(q) {
   if (!q) return;
