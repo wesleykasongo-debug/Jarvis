@@ -1,0 +1,7 @@
+# HTTPS automatique (Let's Encrypt) pour le domaine de deploy/oracle/.env.
+{$DOMAIN} {
+	reverse_proxy api:8000 {
+		# Pas de mise en tampon : les réponses SSE du chat partent au fil de l'eau.
+		flush_interval -1
+	}
+}

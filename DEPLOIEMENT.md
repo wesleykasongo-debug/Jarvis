@@ -1,5 +1,19 @@
 # Déploiement gratuit de JARVIS
 
+## Deux options
+
+| | **Oracle Cloud Always Free** (recommandé) | **Render + Upstash** |
+|---|---|---|
+| Disponibilité | **24h/24**, jamais en veille | veille après 15 min (réveil ~50 s) |
+| Ressources | jusqu'à 4 cœurs ARM, 24 Go RAM | 0,1 cœur, 512 Mo |
+| Redis | sur la VM (illimité) | Upstash, 500 000 commandes/mois |
+| Mise en place | ~30 min, carte bancaire de vérification | ~15 min, sans carte |
+| Guide | **[deploy/oracle/README.md](deploy/oracle/README.md)** | ci-dessous |
+
+---
+
+# Option Render + Upstash
+
 | Brique | Service gratuit | Rôle |
 |---|---|---|
 | Base de données, Auth, Storage | **Supabase** (déjà en place) | profils, conversations, messages |

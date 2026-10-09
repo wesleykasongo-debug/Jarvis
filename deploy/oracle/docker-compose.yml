@@ -1,0 +1,60 @@
+# Production sur une VM (Oracle Cloud Always Free ou tout serveur Linux).
+# Lancé par install.sh / update.sh :
+#   docker compose -f deploy/oracle/docker-compose.yml up -d --build
+#
+# Seul Caddy est exposé (80/443, HTTPS automatique Let's Encrypt).
+# L'API et Redis ne sont joignables que sur le réseau Docker interne.
+name: jarvis
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: ../../backend
+    env_file: ../../backend/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PORT: "8000"
+    expose:
+      - "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN manquant dans deploy/oracle/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:
