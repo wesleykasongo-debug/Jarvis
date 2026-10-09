@@ -191,7 +191,7 @@ async function loadStatus() {
     config = await (await fetch("/console/config")).json();
     setDot("st-openai", config.openai_configured ? "ok" : "err",
       config.openai_configured ? config.model : "OPENAI_API_KEY manquante dans .env");
-  } catch { setDot("st-openai", "err", "config indisponible"); }
+  } catch { config = null; setDot("st-openai", "err", "API injoignable"); }
   try {
     const r = await (await fetch("/health/ready")).json();
     setDot("st-redis", r.redis === "ok" ? "ok" : "err", r.redis);
@@ -220,7 +220,11 @@ $("tab-signup").addEventListener("click", () => showTab("signup"));
 
 // --- Supabase Auth ---------------------------------------------------------------
 async function authRequest(path, body) {
-  if (!config || !config.publishable_key) {
+  if (!config) {
+    throw new Error("La console ne joint pas l'API. Ouvrez http://localhost:8000/console "
+      + "(et non le fichier console.html), après avoir lancé lancer_jarvis.bat.");
+  }
+  if (!config.publishable_key) {
     throw new Error("SUPABASE_PUBLISHABLE_KEY manquante dans backend/.env.");
   }
   const resp = await fetch(config.supabase_url + "/auth/v1/" + path, {
