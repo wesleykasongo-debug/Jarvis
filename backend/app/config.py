@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     supabase_jwt_secret: str | None = None
     supabase_jwt_audience: str = "authenticated"
+    # Clé publique : uniquement pour la console de test (/console).
+    supabase_publishable_key: str | None = None
 
     redis_url: str = "redis://localhost:6379/0"
 
@@ -25,6 +27,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     log_level: str = "INFO"
+
+    # Page de test http://localhost:8000/console (désactiver en production).
+    enable_console: bool = True
 
     @property
     def supabase_issuer(self) -> str:
