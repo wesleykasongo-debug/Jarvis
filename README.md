@@ -46,6 +46,8 @@ Python 3.12+ seulement pour les tests et scripts.
 
 Le fichier `backend/.env` contient des secrets : il est exclu du dépôt par `.gitignore`.
 
+Mise en ligne gratuite (Render + Upstash) : [DEPLOIEMENT.md](DEPLOIEMENT.md).
+
 Détails du backend (routes, scripts d'administration, tests, production) :
 [backend/README.md](backend/README.md).
 

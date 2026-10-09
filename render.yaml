@@ -1,0 +1,33 @@
+# Blueprint Render : https://render.com/docs/blueprint-spec
+# Render -> New -> Blueprint -> choisir ce dépôt. Les valeurs marquées
+# `sync: false` sont demandées à la création (secrets, jamais dans Git).
+services:
+  - type: web
+    name: jarvis-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    # Redéploie seulement quand le backend change.
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: '["http://localhost:3000"]'
+      - key: ENABLE_CONSOLE
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO
