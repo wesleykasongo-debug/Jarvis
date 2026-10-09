@@ -76,6 +76,7 @@ goto fin_erreur
 :api_ok
 echo.
 echo  JARVIS est en ligne.
+echo    Console test   : http://localhost:8000/console
 echo    API            : http://localhost:8000
 echo    Documentation  : http://localhost:8000/docs
 echo    Etat           : http://localhost:8000/health/ready
@@ -83,7 +84,7 @@ echo.
 echo  Pour arreter : arreter_jarvis.bat
 echo  Logs en direct ci-dessous (Ctrl+C pour fermer cette fenetre, JARVIS continue de tourner).
 echo.
-start "" "http://localhost:8000/docs"
+start "" "http://localhost:8000/console"
 docker compose logs -f api
 exit /b 0
 
