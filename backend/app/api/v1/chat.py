@@ -33,6 +33,7 @@ from uuid import UUID, uuid4
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+import openai as openai_errors
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
@@ -97,6 +98,23 @@ class ChatRequest(BaseModel):
 def sse(event: str, data: dict[str, Any]) -> bytes:
     # json.dumps échappe les retours à la ligne : `data` tient sur une ligne.
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode()
+
+
+def describe_llm_error(exc: Exception) -> dict[str, str]:
+    """Événement `error` : message pour l'utilisateur + code pour l'app.
+
+    Codes : llm_credit (crédit OpenAI épuisé), llm_auth (clé invalide),
+    llm_rate_limit (trop de requêtes), llm_unavailable (autre).
+    """
+    if isinstance(exc, openai_errors.RateLimitError):
+        body = getattr(exc, "body", None) or {}
+        code = body.get("code") if isinstance(body, dict) else None
+        if code in ("insufficient_quota", "credit_balance_exhausted") or "insufficient_quota" in str(exc):
+            return {"code": "llm_credit", "message": "Le service IA est temporairement indisponible (crédit du fournisseur épuisé)."}
+        return {"code": "llm_rate_limit", "message": "Le service IA est très sollicité. Réessaie dans quelques secondes."}
+    if isinstance(exc, openai_errors.AuthenticationError):
+        return {"code": "llm_auth", "message": "Le service IA est mal configuré (clé refusée)."}
+    return {"code": "llm_unavailable", "message": "Le moteur IA est momentanément indisponible. Réessaie dans un instant."}
 
 
 def estimate_tokens(text: str) -> int:
@@ -339,9 +357,9 @@ async def chat_stream(
                 },
                 "quota": final_quota.to_dict(),
             })
-        except Exception:
+        except Exception as exc:
             logger.exception("Échec de génération (conversation=%s)", conversation_id)
-            yield sse("error", {"message": "Le moteur IA est momentanément indisponible. Réessaie dans un instant."})
+            yield sse("error", describe_llm_error(exc))
         finally:
             # Exécuté aussi si le client se déconnecte en plein flux :
             # la réponse partielle est enregistrée et facturée.

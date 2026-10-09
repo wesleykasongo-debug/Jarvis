@@ -198,6 +198,24 @@ async def test_llm_failure_sends_error_and_releases_quota(env):
     assert env.supa.inserted == []
 
 
+def test_llm_error_codes():
+    import httpx as _httpx
+    import openai
+
+    req = _httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+
+    def err(cls, status, body):
+        return cls("x", response=_httpx.Response(status, request=req), body=body)
+
+    credit = err(openai.RateLimitError, 429, {"code": "insufficient_quota", "type": "insufficient_quota"})
+    assert chat.describe_llm_error(credit)["code"] == "llm_credit"
+    rate = err(openai.RateLimitError, 429, {"code": "rate_limit_exceeded"})
+    assert chat.describe_llm_error(rate)["code"] == "llm_rate_limit"
+    auth = err(openai.AuthenticationError, 401, {"code": "invalid_api_key"})
+    assert chat.describe_llm_error(auth)["code"] == "llm_auth"
+    assert chat.describe_llm_error(RuntimeError())["code"] == "llm_unavailable"
+
+
 async def test_quota_exceeded_returns_429_before_stream(env):
     env.supa.usage = (30, 0)
     resp = await post_chat(env, message="Bonjour")

@@ -436,7 +436,14 @@ $("composer").addEventListener("submit", async (e) => {
         } else if (event === "error") {
           bubble.classList.remove("streaming");
           if (!text) bubble.remove();
-          addMessage("system", payload.message);
+          const hints = {
+            llm_credit: "Diagnostic : plus de crédit sur le compte OpenAI → platform.openai.com/settings/organization/billing",
+            llm_auth: "Diagnostic : OPENAI_API_KEY refusée → vérifiez la clé dans backend/.env",
+            llm_rate_limit: "Diagnostic : limite de débit OpenAI atteinte, patientez quelques secondes.",
+          };
+          addMessage("system", payload.message + (hints[payload.code] ? "\n" + hints[payload.code] : ""));
+          // Le serveur a rendu la requête au quota : on rafraîchit la jauge.
+          setTimeout(refreshQuota, 500);
         }
       }
     }
