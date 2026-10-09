@@ -1,0 +1,32 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: jarvis-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Optionnel : `docker compose up -d` lance aussi l'API.
+  # Pour le développement avec rechargement auto, lancer plutôt uvicorn en local
+  # avec `docker compose up -d redis`.
+  api:
+    build: .
+    container_name: jarvis-api
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis-data:

@@ -1,0 +1,6 @@
+# À fusionner dans le pubspec.yaml du projet Flutter JARVIS
+dependencies:
+  supabase_flutter: ^2.8.0
+  http: ^1.2.0
+  # Optionnel, Flutter Web : streaming SSE réel via l'API fetch
+  # fetch_client: ^1.1.0
