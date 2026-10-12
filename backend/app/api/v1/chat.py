@@ -138,7 +138,11 @@ _openai: AsyncOpenAI | None = None
 def get_openai() -> AsyncOpenAI:
     global _openai
     if _openai is None:
-        _openai = AsyncOpenAI(api_key=get_settings().openai_api_key)
+        settings = get_settings()
+        base_url = settings.openai_base_url
+        if not base_url and settings.openai_api_key.startswith("gsk_"):
+            base_url = "https://api.groq.com/openai/v1"
+        _openai = AsyncOpenAI(api_key=settings.openai_api_key, base_url=base_url)
     return _openai
 
 

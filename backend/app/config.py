@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     quota_limits_cache_ttl: int = 300
 
     openai_api_key: str
+    openai_base_url: str | None = None
     openai_model: str = "gpt-4o-mini"
     chat_max_output_tokens: int = 1024
     chat_history_messages: int = 20

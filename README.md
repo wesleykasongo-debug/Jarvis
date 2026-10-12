@@ -5,6 +5,7 @@ vocal et écrit. Ce dépôt contient la couche de données et le backend.
 
 ```
 jarvis/
+├── GUIDE_DEV.md          # Guide complet pour installer et contribuer au projet
 ├── lancer_jarvis.bat     # démarre tout (Docker : Redis + API)
 ├── arreter_jarvis.bat    # arrête tout
 ├── tester_jarvis.bat     # test de bout en bout (connexion, quota, chat)
